@@ -146,7 +146,6 @@
 
 <script>
     // --- Global Config & Bluetooth UUIDs ---
-    // Standard Nordic UART UUIDs widely used by ESP32 Classic/BLE bridging stacks
     const UART_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
     const TX_CHAR_UUID      = "6e400003-b5a3-f393-e0a9-e50e24dcca9e";
 
@@ -198,7 +197,6 @@
         try {
             logToTerminal("Initiating search for Bluetooth device...");
             
-            // Filters based on the software transmission parameters configured on the ESP32
             bluetoothDevice = await navigator.bluetooth.requestDevice({
                 filters: [{ name: 'ESP32_Volt_Link' }],
                 optionalServices: [UART_SERVICE_UUID]
@@ -211,7 +209,6 @@
             const service = await server.getPrimaryService(UART_SERVICE_UUID);
             txCharacteristic = await service.getCharacteristic(TX_CHAR_UUID);
 
-            // Turn on system notifications to track serial parsing arrays asynchronously
             await txCharacteristic.startNotifications();
             txCharacteristic.addEventListener('characteristicvaluechanged', handleDataStream);
 
@@ -232,24 +229,24 @@
         
         logToTerminal(`Received: ${rawString}`);
 
-        // Parsing scheme matches firmware key format -> "VOLTAGE:230.40 V"
-        if (rawString.startsWith("VOLTAGE:")) {
+        // Safer parse fallback in case packet transmission splits strings
+        if (rawString.includes("VOLTAGE:")) {
             let processedVal = rawString.replace("VOLTAGE:", "").replace("V", "").trim();
             let parsedVoltage = parseFloat(processedVal);
 
             if (!isNaN(parsedVoltage)) {
-                // Update Numeric Display
+                // Update Layout Value
                 voltValue.textContent = parsedVoltage.toFixed(1);
 
-                // Append Data to Chart Object
+                // FIXED: Direct dataset indexing fixes previous type error
                 const now = new Date().toLocaleTimeString();
                 if (chartData.labels.length >= maxDataPoints) {
                     chartData.labels.shift();
-                    chartData.datasets[0].data.shift();
+                    chartData.datasets[0].data.shift(); 
                 }
                 chartData.labels.push(now);
-                chartData.datasets[0].data.push(parsedVoltage);
-                voltageChart.update('none'); // Update smoothly without full redraw animations
+                chartData.datasets[0].data.push(parsedVoltage); 
+                voltageChart.update('none'); 
             }
         }
     }
